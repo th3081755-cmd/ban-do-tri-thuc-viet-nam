@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bản đồ tri thức Việt Nam | Hoa bồ công anh</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--ink:#263448;--muted:#68788d;--lav:#8b65b5;--gold:#e5bd78;--sea:#eaf6fb;--paper:#fffdf9}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;color:var(--ink);background:linear-gradient(145deg,#f7f2ff,#e9f6fb);}
+header{padding:22px 24px 14px;text-align:center}
+h1{margin:0;color:#684b91;font-size:clamp(23px,3vw,34px);letter-spacing:.3px}
+.subtitle{margin:8px auto 0;color:var(--muted);max-width:760px;line-height:1.5}
+.app{max-width:1500px;margin:auto;padding:0 18px 24px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px}
+.map-wrap{position:relative;background:var(--sea);border:1px solid #d7e6ed;border-radius:20px;overflow:hidden;min-height:690px;box-shadow:0 12px 35px #607d8b20}
+#map{height: min(78vh,850px);min-height:690px;background:#eaf6fb}
+.side{background:#ffffffdf;border:1px solid #e8e0ef;border-radius:20px;padding:18px;box-shadow:0 12px 35px #607d8b15;align-self:start;position:sticky;top:14px}
+.search{width:100%;padding:12px 13px;border:1px solid #d8d0e5;border-radius:12px;font-size:14px;outline:none}
+.search:focus{border-color:#9b7bc0;box-shadow:0 0 0 3px #9b7bc020}
+.hint{font-size:13px;color:var(--muted);line-height:1.5;margin:12px 0}
+.stats{display:flex;gap:8px;margin:14px 0}
+.stat{flex:1;background:#f5f0fa;border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;color:#74539a;font-size:20px}
+.stat span{font-size:11px;color:var(--muted)}
+.region-list{max-height:390px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.region-list button{border:0;background:#f7f5fa;color:#46536a;border-radius:9px;padding:8px 7px;text-align:left;cursor:pointer;font-size:12px}
+.region-list button:hover{background:#eee5f7;color:#694a91}
+.legend{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.5}
+.flower-icon{background:transparent;border:0}
+.flower-icon img{width:48px;height:62px;object-fit:contain;border:0;border-radius:0;box-shadow:none;filter:drop-shadow(0 2px 3px #355b3b55);transition:transform .2s;}
+.flower-icon:hover img{transform:scale(1.2) translateY(-2px)}
+.island-icon{background:#fff;border:1px solid #b99cce;border-radius:20px;padding:5px 8px;color:#684b91;font-weight:bold;font-size:11px;white-space:nowrap;box-shadow:0 2px 8px #3332}
+.leaflet-tooltip.province-label{background:#fffdf0;border:1px solid #e5c98f;color:#65533a;border-radius:8px;font-weight:bold;font-size:10px;padding:3px 6px;box-shadow:0 1px 5px #3332}
+.modal-backdrop{display:none;position:fixed;inset:0;background:#18233488;z-index:2000;align-items:center;justify-content:center;padding:16px}
+.modal-backdrop.show{display:flex}
+.modal{background:var(--paper);width:min(560px,100%);max-height:88vh;overflow:auto;border-radius:20px;padding:24px;box-shadow:0 20px 60px #17243c55;position:relative}
+.modal h2{color:#76539d;margin:0 36px 8px 0;font-size:25px}
+.modal .tag{display:inline-block;background:#f0e8f8;color:#75539b;border-radius:30px;padding:5px 10px;font-size:11px;margin-bottom:12px}
+.modal h3{font-size:14px;color:#8a6a42;margin:16px 0 5px}
+.modal p{line-height:1.65;margin:0;color:#475569;font-size:14px}
+.close{position:absolute;right:15px;top:13px;border:0;background:#f0eaf5;color:#674b8a;width:34px;height:34px;border-radius:50%;font-size:20px;cursor:pointer}
+.credit{max-width:1500px;margin:0 auto;padding:0 22px 22px;color:#778397;font-size:11px;line-height:1.5}
+.loading{position:absolute;z-index:500;left:50%;top:14px;transform:translateX(-50%);background:#fff;padding:9px 14px;border-radius:20px;box-shadow:0 2px 10px #3332;font-size:12px;color:#5d4a77}
+@media(max-width:900px){.app{grid-template-columns:1fr}.side{position:static}#map{height:65vh;min-height:540px}.map-wrap{min-height:540px}.region-list{max-height:220px}}
+@media(max-width:520px){header{padding:18px 14px 10px}.app{padding:0 9px 16px;gap:10px}#map{height:62vh;min-height:470px}.side{padding:14px}}
+.explorer-modal{width:min(920px,100%);padding:26px;max-height:92vh}
+.explorer-modal h2{font-size:clamp(23px,3vw,32px)}
+.explorer-modal h3{font-size:16px;color:#76539d;margin:18px 0 8px}
+.explorer-modal p{font-size:14px;line-height:1.75;color:#475569}
+.explorer-top{display:flex;align-items:center;gap:10px;margin:0 40px 16px 0;color:#7b6b8c;font-size:12px}
+.explorer-back,.lang-btn,.action-btn,.tile-btn{border:1px solid #e5dced;background:#fff;border-radius:11px;padding:9px 12px;cursor:pointer;color:#62477f;font-weight:600}
+.explorer-back{margin-bottom:14px}.lang-switch{display:flex;gap:7px;margin:12px 0 16px;flex-wrap:wrap}.lang-btn.active{background:#76539d;color:white;border-color:#76539d}
+.explorer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.explorer-card{border:1px solid #e9e0ef;background:#fff;border-radius:15px;overflow:hidden;cursor:pointer;text-align:left;padding:0;color:#263448;transition:.18s}
+.explorer-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px #5d467a18}
+.explorer-card img{width:100%;height:142px;object-fit:cover;display:block;background:#eaf2f5}
+.explorer-card div{padding:12px}.explorer-card b{display:block;color:#654783;margin-bottom:5px}.explorer-card small{color:#718096;line-height:1.5}
+.explorer-feature{border:1px solid #e9e0ef;border-radius:16px;overflow:hidden;background:#fff;margin:12px 0}
+.explorer-feature img{width:100%;height:220px;object-fit:cover;display:block}
+.explorer-feature .inside{padding:16px}
+.learning-panel{background:#f7f2fb;border:1px solid #e9def3;border-radius:15px;padding:16px;margin-top:18px}
+.vocab-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.vocab-item{background:white;border:1px solid #eadff1;border-radius:10px;padding:9px;font-size:13px}
+.quiz-option{display:block;width:100%;text-align:left;margin:7px 0;padding:10px;border:1px solid #e2d9e9;border-radius:10px;background:white;cursor:pointer;color:#334155}
+.quiz-option.selected{border-color:#8763ac;background:#f2eafa}.quiz-option.correct{border-color:#3d9b6b;background:#edf8f1}
+@media(max-width:600px){.explorer-modal{padding:18px}.explorer-grid{grid-template-columns:1fr 1fr;gap:8px}.explorer-card img{height:105px}.explorer-card div{padding:9px}.explorer-feature img{height:170px}.vocab-list{grid-template-columns:1fr}}
+
+
+</style>
+</head>
+<body>
+<header>
+<h1>🌼 BẢN ĐỒ TRI THỨC VIỆT NAM</h1>
+<p class="subtitle">Mỗi bông hoa bồ công anh là một cánh cửa khám phá lịch sử, văn hóa, danh lam thắng cảnh và những nét đặc trưng của từng vùng đất Việt Nam.</p>
+</header>
+<main class="app">
+<section class="map-wrap">
+<div id="map"></div>
+<div class="loading" id="loading">Đang tải đường biên bản đồ Việt Nam…</div>
+</section>
+<aside class="side">
+<input class="search" id="search" placeholder="Tìm tỉnh/thành phố…">
+<div class="stats">
+<div class="stat"><b>34</b><span>tỉnh, thành phố</span></div>
+<div class="stat"><b>02</b><span>quần đảo</span></div>
+</div>
+<p class="hint">Chạm vào một bông hoa trên bản đồ hoặc chọn địa danh bên dưới để mở nội dung khám phá.</p>
+<div class="region-list" id="regionList"></div>
+<div class="legend">🌼 Hoa bồ công anh: địa điểm có nội dung tương tác.<br>Đường biên và nền bản đồ chỉ hiển thị lãnh thổ Việt Nam; không dùng bản đồ nền có các quốc gia láng giềng.</div>
+</aside>
+</main>
+<footer class="credit">
+Dữ liệu ranh giới hành chính tham khảo: Nguyễn Duy Liêm, “Vietnam GIS Data”, bộ dữ liệu sau sắp xếp 2025 (34 tỉnh/thành), gồm Hoàng Sa và Trường Sa. Vui lòng kiểm tra, đối chiếu nguồn chính thức khi sử dụng trong sản phẩm học thuật. Bản đồ nền được vẽ từ dữ liệu GeoJSON; cần kết nối Internet để tải thư viện Leaflet và dữ liệu.
+</footer>
+<div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+<article class="modal explorer-modal">
+<button class="close" id="closeModal" aria-label="Đóng">×</button>
+<div id="explorerContent"></div>
+</article>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const FLOWER = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 82" width="64" height="82">
+ <defs>
+  <radialGradient id="puff" cx="50%" cy="50%" r="55%"><stop offset="0" stop-color="#fff4ff" stop-opacity=".95"/><stop offset=".55" stop-color="#e8b5ff" stop-opacity=".38"/><stop offset="1" stop-color="#c77cff" stop-opacity="0"/></radialGradient>
+  <linearGradient id="stem" x1="0" x2="1"><stop stop-color="#2f7548"/><stop offset="1" stop-color="#76b879"/></linearGradient>
+ </defs>
+ <ellipse cx="31" cy="29" rx="27" ry="27" fill="url(#puff)"/>
+ <path d="M31 34 Q29 53 34 78" fill="none" stroke="url(#stem)" stroke-width="2.7" stroke-linecap="round"/>
+ <path d="M32 65 Q21 56 15 63 Q23 69 33 68" fill="#70b978" stroke="#397c4c" stroke-width="1"/>
+ <g stroke="#d99cff" stroke-width="1.35" stroke-linecap="round" fill="none"><path d="M31 30 L31 4 M31 30 L43 7 M31 30 L55 16 M31 30 L59 30 M31 30 L53 46 M31 30 L40 55 M31 30 L25 56 M31 30 L10 47 M31 30 L4 32 M31 30 L8 16 M31 30 L20 7"/></g>
+ <g fill="#fff5ff" stroke="#d99cff" stroke-width=".75" stroke-linecap="round">
+  <path d="M31 4 l-3 -3 m3 3 l3 -3 M43 7 l-1 -4 m1 4 l4 -2 M55 16 l-3 -3 m3 3 l4 0 M59 30 l-4 -2 m4 2 l4 2 M53 46 l-4 -1 m4 1 l1 4 M40 55 l-2 -4 m2 4 l3 3 M25 56 l-1 -4 m1 4 l3 3 M10 47 l2 -4 m-2 4 l-4 2 M4 32 l4 -2 m-4 2 l-3 2 M8 16 l4 1 m-4 -1 l-1 -4 M20 7 l2 4 m-2 -4 l1 -4"/>
+ </g>
+ <circle cx="31" cy="30" r="3.5" fill="#f8eaff"/><circle cx="31" cy="30" r="1.7" fill="#fff5ba"/>
+</svg>`);
+const provinces = [{"name": "Hà Nội", "lat": 21.0285, "lon": 105.8542, "intro": "Thủ đô của Việt Nam, trung tâm chính trị, hành chính và văn hóa của cả nước.", "places": "Hồ Gươm, Hoàng thành Thăng Long, Văn Miếu – Quốc Tử Giám.", "culture": "Ẩm thực: phở, bún chả, cốm làng Vòng. Lễ hội và phố nghề truyền thống tạo nên bản sắc văn hóa Thăng Long."}, {"name": "Cao Bằng", "lat": 22.6667, "lon": 106.25, "intro": "Vùng đất miền núi Đông Bắc, nổi bật với cảnh quan núi đá vôi và lịch sử cách mạng.", "places": "Thác Bản Giốc, động Ngườm Ngao, Khu di tích Pác Bó.", "culture": "Văn hóa Tày, Nùng; hát then, đàn tính và các lễ hội dân gian."}, {"name": "Tuyên Quang", "lat": 21.8236, "lon": 105.2181, "intro": "Vùng đất gắn với lịch sử cách mạng và không gian văn hóa các dân tộc miền núi phía Bắc.", "places": "Tân Trào, Na Hang – Lâm Bình, ruộng bậc thang Hoàng Su Phì (khu vực Hà Giang cũ).", "culture": "Có văn hóa Tày, Dao, Mông; Lễ hội Thành Tuyên nổi tiếng."}, {"name": "Điện Biên", "lat": 21.386, "lon": 103.023, "intro": "Tỉnh miền núi Tây Bắc gắn liền với chiến thắng Điện Biên Phủ năm 1954.", "places": "Đồi A1, Sở chỉ huy chiến dịch Điện Biên Phủ, hồ Pá Khoang.", "culture": "Văn hóa Thái, Mông và nhiều dân tộc; múa xòe, khăn piêu, lễ hội hoa ban."}, {"name": "Lai Châu", "lat": 22.3964, "lon": 103.458, "intro": "Vùng núi cao Tây Bắc với cảnh quan hùng vĩ và bản sắc đa dạng của các dân tộc.", "places": "Đèo Ô Quy Hồ, Pu Si Lung, cao nguyên Sìn Hồ.", "culture": "Văn hóa Thái, Hà Nhì, Dao, Mông; chợ phiên và lễ hội truyền thống."}, {"name": "Sơn La", "lat": 21.3256, "lon": 103.9188, "intro": "Vùng Tây Bắc nổi tiếng với cao nguyên, nông sản và di tích lịch sử.", "places": "Nhà tù Sơn La, cao nguyên Mộc Châu, hồ thủy điện Sơn La.", "culture": "Văn hóa Thái, Mông; điệu múa xòe, lễ hội Hết Chá và ẩm thực vùng cao."}, {"name": "Lào Cai", "lat": 22.4856, "lon": 103.9707, "intro": "Cửa ngõ vùng Tây Bắc, nổi tiếng với dãy Hoàng Liên Sơn và du lịch núi.", "places": "Sa Pa, đỉnh Fansipan, chợ Bắc Hà.", "culture": "Văn hóa H'Mông, Dao, Tày, Giáy; chợ phiên và nghề thổ cẩm."}, {"name": "Thái Nguyên", "lat": 21.5944, "lon": 105.8482, "intro": "Trung tâm vùng trung du miền núi phía Bắc, nổi tiếng với văn hóa trà.", "places": "Hồ Núi Cốc, ATK Định Hóa, vùng chè Tân Cương.", "culture": "Trà Thái Nguyên là đặc sản tiêu biểu; có văn hóa Tày, Nùng và lễ hội Lồng Tồng."}, {"name": "Lạng Sơn", "lat": 21.8537, "lon": 106.761, "intro": "Vùng biên viễn Đông Bắc với địa hình núi đá, cửa khẩu và di tích lịch sử.", "places": "Ải Chi Lăng, động Tam Thanh, núi Tô Thị, Mẫu Sơn.", "culture": "Văn hóa Tày, Nùng; hát sli, lượn và các lễ hội truyền thống."}, {"name": "Quảng Ninh", "lat": 20.95, "lon": 107.08, "intro": "Tỉnh ven biển Đông Bắc, nổi tiếng với di sản thiên nhiên thế giới Vịnh Hạ Long.", "places": "Vịnh Hạ Long, Yên Tử, đảo Cô Tô.", "culture": "Văn hóa biển, lễ hội Yên Tử và các làng chài truyền thống."}, {"name": "Bắc Ninh", "lat": 21.1861, "lon": 106.0763, "intro": "Vùng Kinh Bắc giàu truyền thống văn hiến, nổi tiếng với dân ca quan họ.", "places": "Chùa Dâu, chùa Phật Tích, làng tranh Đông Hồ.", "culture": "Dân ca Quan họ Bắc Ninh là di sản văn hóa phi vật thể đại diện của nhân loại."}, {"name": "Phú Thọ", "lat": 21.3089, "lon": 105.2045, "intro": "Vùng đất cội nguồn dân tộc Việt, gắn với thời đại các Vua Hùng.", "places": "Đền Hùng, Vườn quốc gia Xuân Sơn, hồ Hòa Bình (khu vực tỉnh cũ).", "culture": "Tín ngưỡng thờ cúng Hùng Vương và hát Xoan Phú Thọ là di sản văn hóa đặc sắc."}, {"name": "Hải Phòng", "lat": 20.8449, "lon": 106.6881, "intro": "Thành phố cảng lớn ở miền Bắc, có vai trò quan trọng về kinh tế biển và giao thương.", "places": "Quần đảo Cát Bà, vịnh Lan Hạ, Đồ Sơn.", "culture": "Lễ hội chọi trâu Đồ Sơn, văn hóa biển và ẩm thực bánh đa cua."}, {"name": "Hưng Yên", "lat": 20.6464, "lon": 106.0511, "intro": "Vùng đồng bằng sông Hồng với truyền thống nông nghiệp và thương cảng Phố Hiến xưa.", "places": "Phố Hiến, đền Chử Đồng Tử, làng Nôm.", "culture": "Đặc sản nhãn lồng; nhiều đình, chùa và lễ hội dân gian lâu đời."}, {"name": "Ninh Bình", "lat": 20.2506, "lon": 105.9745, "intro": "Vùng đất cố đô Hoa Lư, nổi bật với cảnh quan karst và di sản văn hóa – thiên nhiên.", "places": "Quần thể danh thắng Tràng An, Tam Cốc – Bích Động, cố đô Hoa Lư.", "culture": "Nổi tiếng với hát chèo, lễ hội Hoa Lư và ẩm thực dê núi, cơm cháy."}, {"name": "Thanh Hóa", "lat": 19.8067, "lon": 105.7852, "intro": "Vùng đất có bề dày lịch sử, văn hóa và cảnh quan trải dài từ miền núi đến ven biển.", "places": "Thành Nhà Hồ, Lam Kinh, biển Sầm Sơn, Pù Luông.", "culture": "Văn hóa Đông Sơn, dân ca hò sông Mã và nhiều lễ hội truyền thống."}, {"name": "Nghệ An", "lat": 18.6796, "lon": 105.6813, "intro": "Quê hương Chủ tịch Hồ Chí Minh, trung tâm văn hóa xứ Nghệ.", "places": "Khu di tích Kim Liên, vườn quốc gia Pù Mát, biển Cửa Lò.", "culture": "Dân ca Ví, Giặm Nghệ Tĩnh là di sản văn hóa phi vật thể được UNESCO ghi danh."}, {"name": "Hà Tĩnh", "lat": 18.3559, "lon": 105.8877, "intro": "Vùng đất miền Trung giàu truyền thống hiếu học, văn học và lịch sử.", "places": "Ngã ba Đồng Lộc, khu lưu niệm Nguyễn Du, hồ Kẻ Gỗ.", "culture": "Gắn với Đại thi hào Nguyễn Du, ca trù và dân ca Ví, Giặm."}, {"name": "Quảng Trị", "lat": 16.8163, "lon": 107.1003, "intro": "Vùng đất giàu dấu ấn lịch sử, đặc biệt trong cuộc kháng chiến chống Mỹ.", "places": "Thành cổ Quảng Trị, địa đạo Vịnh Mốc, cầu Hiền Lương – sông Bến Hải.", "culture": "Có nhiều di tích lịch sử cách mạng, lễ hội và văn hóa của các dân tộc Vân Kiều, Pa Kô."}, {"name": "Huế", "lat": 16.4637, "lon": 107.5909, "intro": "Cố đô của triều Nguyễn, nổi bật với quần thể di tích và di sản văn hóa cung đình.", "places": "Đại Nội Huế, lăng Minh Mạng, chùa Thiên Mụ, sông Hương.", "culture": "Nhã nhạc cung đình Huế, áo dài, ẩm thực cung đình và Festival Huế."}, {"name": "Đà Nẵng", "lat": 16.0544, "lon": 108.2022, "intro": "Thành phố ven biển miền Trung, cửa ngõ kết nối di sản miền Trung.", "places": "Bán đảo Sơn Trà, Ngũ Hành Sơn, Bà Nà Hills, phố cổ Hội An, thánh địa Mỹ Sơn.", "culture": "Văn hóa biển, lễ hội Quán Thế Âm và di sản văn hóa Chăm."}, {"name": "Quảng Ngãi", "lat": 15.12, "lon": 108.8, "intro": "Tỉnh duyên hải miền Trung có biển đảo, núi rừng và các giá trị văn hóa Sa Huỳnh.", "places": "Đảo Lý Sơn, biển Mỹ Khê, văn hóa Sa Huỳnh.", "culture": "Văn hóa Sa Huỳnh, lễ khao lề thế lính Hoàng Sa và đặc sản tỏi Lý Sơn."}, {"name": "Gia Lai", "lat": 13.9833, "lon": 108.0, "intro": "Không gian cao nguyên Tây Nguyên với văn hóa cồng chiêng và cảnh quan núi lửa.", "places": "Biển Hồ, núi lửa Chư Đăng Ya, tháp Chăm, Eo Gió (khu vực Bình Định cũ).", "culture": "Không gian văn hóa cồng chiêng Tây Nguyên; văn hóa Jrai, Bahnar và lễ hội truyền thống."}, {"name": "Khánh Hòa", "lat": 12.2388, "lon": 109.1967, "intro": "Tỉnh duyên hải Nam Trung Bộ nổi tiếng với vịnh biển, đảo và du lịch nghỉ dưỡng.", "places": "Vịnh Nha Trang, tháp Bà Ponagar, vịnh Vân Phong, đảo Bình Ba.", "culture": "Văn hóa Chăm, lễ hội Tháp Bà Ponagar và văn hóa biển."}, {"name": "Đắk Lắk", "lat": 12.6667, "lon": 108.05, "intro": "Vùng đất Tây Nguyên nổi tiếng với cà phê, không gian văn hóa cồng chiêng và hồ tự nhiên.", "places": "Buôn Đôn, hồ Lắk, thác Dray Nur, Gành Đá Đĩa (khu vực Phú Yên cũ).", "culture": "Văn hóa Ê Đê, M'Nông; nhà dài, sử thi và lễ hội cà phê."}, {"name": "Lâm Đồng", "lat": 11.9404, "lon": 108.4583, "intro": "Tỉnh cao nguyên có khí hậu mát mẻ, rừng thông, nông nghiệp công nghệ cao và cảnh quan đa dạng.", "places": "Đà Lạt, hồ Xuân Hương, thác Dambri, Mũi Né.", "culture": "Văn hóa các dân tộc K'Ho, Mạ; kiến trúc Pháp và văn hóa nghỉ dưỡng Đà Lạt."}, {"name": "Đồng Nai", "lat": 10.9574, "lon": 106.8426, "intro": "Vùng Đông Nam Bộ có lịch sử khai phá lâu đời, hệ sinh thái rừng và hoạt động công nghiệp phát triển.", "places": "Vườn quốc gia Cát Tiên, hồ Trị An, Văn miếu Trấn Biên.", "culture": "Văn hóa cộng đồng đa dạng, di tích Biên Hòa và lễ hội truyền thống."}, {"name": "TP. Hồ Chí Minh", "lat": 10.8231, "lon": 106.6297, "intro": "Đô thị lớn nhất cả nước về quy mô kinh tế, trung tâm giao thương, văn hóa và sáng tạo.", "places": "Dinh Độc Lập, chợ Bến Thành, địa đạo Củ Chi, Cần Giờ.", "culture": "Sự giao thoa văn hóa Bắc – Trung – Nam; ẩm thực đường phố và di sản đô thị Sài Gòn – Chợ Lớn."}, {"name": "Tây Ninh", "lat": 11.31, "lon": 106.1, "intro": "Vùng Đông Nam Bộ có cảnh quan núi, hồ và các công trình tín ngưỡng đặc sắc.", "places": "Núi Bà Đen, Tòa thánh Cao Đài, hồ Dầu Tiếng.", "culture": "Đạo Cao Đài, lễ hội núi Bà Đen và đặc sản bánh tráng phơi sương."}, {"name": "Đồng Tháp", "lat": 10.45, "lon": 105.6333, "intro": "Vùng Đồng bằng sông Cửu Long nổi tiếng với sen, vườn cây và hệ sinh thái đất ngập nước.", "places": "Vườn quốc gia Tràm Chim, Gáo Giồng, Sa Đéc.", "culture": "Văn hóa miệt vườn, làng hoa Sa Đéc và lễ hội Gò Tháp."}, {"name": "Vĩnh Long", "lat": 10.25, "lon": 105.9667, "intro": "Vùng sông nước giữa các nhánh sông Mekong, nổi bật với miệt vườn và làng nghề.", "places": "Cù lao An Bình, lò gạch Mang Thít, chợ nổi Trà Ôn.", "culture": "Văn hóa miệt vườn, đờn ca tài tử và ẩm thực miền Tây."}, {"name": "An Giang", "lat": 10.3864, "lon": 105.4352, "intro": "Vùng biên giới Tây Nam với núi, đồng bằng, sông nước và cộng đồng văn hóa đa dạng.", "places": "Miếu Bà Chúa Xứ Núi Sam, rừng tràm Trà Sư, núi Cấm, Phú Quốc.", "culture": "Văn hóa Kinh, Khmer, Chăm, Hoa; lễ hội Vía Bà Chúa Xứ Núi Sam."}, {"name": "Cần Thơ", "lat": 10.0452, "lon": 105.7469, "intro": "Trung tâm vùng Đồng bằng sông Cửu Long, nổi tiếng với văn hóa sông nước.", "places": "Chợ nổi Cái Răng, bến Ninh Kiều, nhà cổ Bình Thủy.", "culture": "Đờn ca tài tử, văn hóa chợ nổi và ẩm thực miền Tây."}, {"name": "Cà Mau", "lat": 9.1769, "lon": 105.1524, "intro": "Vùng đất cực Nam của Việt Nam, có hệ sinh thái rừng ngập mặn và biển rộng lớn.", "places": "Mũi Cà Mau, rừng U Minh Hạ, sân chim Đầm Dơi.", "culture": "Văn hóa sông nước, nghề đánh bắt và đặc sản cua Cà Mau."}];
+const islands = [
+ {name:"Quần đảo Hoàng Sa",lat:16.5,lon:112.0,intro:"Quần đảo Hoàng Sa nằm ở Biển Đông. Đây là một bộ phận lãnh thổ thiêng liêng của Việt Nam, gắn với quá trình xác lập và thực thi chủ quyền của Nhà nước Việt Nam qua nhiều thời kỳ lịch sử.",places:"Các đảo, đá và bãi san hô thuộc quần đảo Hoàng Sa; Hải đăng và các điểm địa lý cần được giới thiệu theo tư liệu bản đồ phù hợp.",culture:"Nội dung nên giới thiệu tư liệu lịch sử, hoạt động của đội Hoàng Sa – Bắc Hải và các nguồn tư liệu chính thống về chủ quyền."},
+ {name:"Quần đảo Trường Sa",lat:10.0,lon:114.0,intro:"Quần đảo Trường Sa nằm ở phía nam Biển Đông, có vị trí quan trọng về địa lý, kinh tế biển và quốc phòng – an ninh của Việt Nam.",places:"Các đảo, đá, bãi và điểm đảo thuộc quần đảo Trường Sa; có thể mở rộng từng điểm đảo thành một mục khám phá riêng.",culture:"Giới thiệu đời sống quân dân trên đảo, hoạt động bảo vệ chủ quyền, hệ sinh thái biển đảo và tư liệu lịch sử – pháp lý đáng tin cậy."}
+];
+const map=L.map('map',{zoomControl:true,scrollWheelZoom:true,preferCanvas:true}).setView([16.2,107.8],5);
+map.setMaxBounds([[5.0,99.0],[26.5,119.5]]);
+map.on('drag',()=>map.panInsideBounds([[5.0,99.0],[26.5,119.5]],{animate:false}));
+const style={color:'#4f8e61',weight:1.15,opacity:.98,fillColor:'#8fc98f',fillOpacity:.88};
+const highlight={color:'#39764b',weight:2.4,fillColor:'#b9e4ae',fillOpacity:.98};
+let boundaryLayer=null;
+let currentItem=null, currentView='home', currentLanguage='vi', speechUtterance=null;
+const hpPlaces=[
+ {name:'Quần đảo Cát Bà',en:'Cat Ba Archipelago',kind:'Thiên nhiên và biển đảo',image:'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1000&q=85',vi:'Quần đảo Cát Bà nổi bật với cảnh quan núi đá vôi, vùng biển và hệ sinh thái đa dạng. Đây là một điểm đến tiêu biểu khi tìm hiểu thiên nhiên và đời sống biển đảo Hải Phòng.',enText:'Cat Ba Archipelago is known for its limestone landscapes, coastal scenery and diverse ecosystems. It is an important destination for learning about nature and island life in Hai Phong.'},
+ {name:'Vịnh Lan Hạ',en:'Lan Ha Bay',kind:'Cảnh quan thiên nhiên',image:'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?w=1000&q=85',vi:'Vịnh Lan Hạ gây ấn tượng với nhiều đảo đá, mặt nước xanh và các bãi biển nhỏ. Nội dung có thể mở rộng về cảnh quan, hoạt động du lịch và bảo tồn môi trường biển.',enText:'Lan Ha Bay impresses visitors with limestone islets, clear water and small beaches. Its story can introduce local landscapes, tourism activities and marine conservation.'},
+ {name:'Đồ Sơn',en:'Do Son',kind:'Biển và văn hóa địa phương',image:'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1000&q=85',vi:'Đồ Sơn là khu vực ven biển gắn với hoạt động nghỉ dưỡng và văn hóa biển của Hải Phòng. Đây cũng là nơi diễn ra lễ hội chọi trâu Đồ Sơn nổi tiếng.',enText:'Do Son is a coastal area associated with seaside tourism and Hai Phong’s maritime culture. It is also known for the Do Son Buffalo Fighting Festival.'},
+ {name:'Di tích Tràng Kênh',en:'Trang Kenh Historical Site',kind:'Lịch sử',image:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1000&q=85',vi:'Tràng Kênh là không gian cảnh quan và di tích gắn với vùng đất Bạch Đằng. Khi biên soạn nội dung chi tiết, cần đối chiếu tư liệu của cơ quan văn hóa địa phương.',enText:'Trang Kenh is a landscape and heritage area connected with the Bach Dang region. Detailed historical information should be checked against local cultural sources.'}
+];
+const hpHistory=[
+ {name:'Chiến thắng Bạch Đằng',en:'Bach Dang Victory',kind:'Dấu mốc lịch sử',image:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1000&q=85',vi:'Sông Bạch Đằng gắn với những chiến thắng quan trọng trong lịch sử chống ngoại xâm của dân tộc. Đây là chủ đề tiêu biểu để tìm hiểu nghệ thuật quân sự, địa hình sông nước và truyền thống giữ nước.',enText:'The Bach Dang River is associated with important victories in Vietnam’s history of resistance against foreign invasions. This topic introduces military strategy, river landscapes and the tradition of defending the country.'},
+ {name:'Lễ hội chọi trâu Đồ Sơn',en:'Do Son Buffalo Fighting Festival',kind:'Lễ hội truyền thống',image:'https://images.unsplash.com/photo-1511497584788-876760111969?w=1000&q=85',vi:'Lễ hội chọi trâu Đồ Sơn là một lễ hội dân gian nổi tiếng của Hải Phòng. Nội dung giới thiệu nên làm rõ nguồn gốc, nghi thức, ý nghĩa cộng đồng và các quy định tổ chức lễ hội.',enText:'The Do Son Buffalo Fighting Festival is a well-known folk festival in Hai Phong. A learning page can explore its origins, rituals, community meaning and festival regulations.'},
+ {name:'Văn hóa biển Hải Phòng',en:'Hai Phong Maritime Culture',kind:'Đời sống và văn hóa',image:'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1000&q=85',vi:'Văn hóa biển thể hiện qua sinh kế, ẩm thực, tập quán và đời sống cộng đồng ven biển. Đây là chủ đề phù hợp để giới thiệu mối quan hệ giữa con người với biển.',enText:'Maritime culture can be seen in livelihoods, food, customs and coastal community life. This topic explores the relationship between people and the sea.'}
+];
+function makeGeneric(items,kind){return items.split(',').map((n,i)=>({name:n.trim(),en:n.trim(),kind:kind,image:['https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1000&q=80','https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=1000&q=80','https://images.unsplash.com/photo-1501785885882-8f5b5b4b1c6b?w=1000&q=80'][i%3],vi:`${n.trim()} là một địa danh tiêu biểu được giới thiệu trong bản đồ tri thức. Trang nội dung chi tiết sẽ bổ sung vị trí, đặc điểm nổi bật, giá trị lịch sử – văn hóa và thông tin tham khảo đã được kiểm chứng.`,enText:`${n.trim()} is a notable destination featured in this knowledge map. The detailed page can introduce its location, key features, and verified historical and cultural information.`}));}
+function openInfo(item,island=false){currentItem=item;currentView='home';currentLanguage='vi';renderExplorer();document.getElementById('modalBackdrop').classList.add('show');}
+function renderExplorer(){
+ const root=document.getElementById('explorerContent'),it=currentItem,isHP=it.name==='Hải Phòng';
+ const places=isHP?hpPlaces:makeGeneric(it.places||'Địa danh tiêu biểu', 'Địa danh');
+ const history=isHP?hpHistory:[{name:'Lịch sử địa phương',en:'Local History',kind:'Lịch sử',image:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1000&q=80',vi:it.culture||it.intro,enText:it.intro}];
+ const data=currentView==='places'?places:currentView==='history'?history:[];
+ if(currentView==='home'){
+  const intro=currentLanguage==='vi'?it.intro:(it.enIntro||'Explore the history, culture and distinctive landscapes of '+it.name+'.');
+  root.innerHTML=`<div class="explorer-top">🌼 BẢN ĐỒ TRI THỨC / ${it.name.toLocaleUpperCase('vi')}</div><h2>${it.name}</h2><div class="lang-switch"><button class="lang-btn ${currentLanguage==='vi'?'active':''}" onclick="setExplorerLanguage('vi')">🇻🇳 Tiếng Việt</button><button class="lang-btn ${currentLanguage==='en'?'active':''}" onclick="setExplorerLanguage('en')">🇬🇧 English</button><button class="lang-btn" onclick="setExplorerLanguage('both')">Song ngữ</button></div><p>${intro}</p><div class="explorer-grid"><button class="explorer-card" onclick="openExplorerSection('places')"><img src="${isHP?hpPlaces[0].image:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800&q=80'}"><div><b>📍 Địa danh tiêu biểu</b><small>Khám phá địa điểm và hình ảnh nổi bật →</small></div></button><button class="explorer-card" onclick="openExplorerSection('history')"><img src="${isHP?hpHistory[0].image:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80'}"><div><b>🏛️ Lịch sử và văn hóa</b><small>Tìm hiểu các dấu mốc, di sản và lễ hội →</small></div></button></div><div class="learning-panel"><h3 style="margin-top:0">📚 Khám phá tiếng Anh</h3><p>Explore the history, culture and famous places of this destination.</p><div class="explorer-grid"><button class="tile-btn" onclick="openLearning('vocab')">📖 Từ vựng</button><button class="tile-btn" onclick="openLearning('sentences')">💬 Mẫu câu</button><button class="tile-btn" onclick="openLearning('quiz')">✍️ Trắc nghiệm</button><button class="tile-btn" onclick="openLearning('listening')">🎧 Luyện nghe</button></div></div>`;
+ }else if(currentView==='places'||currentView==='history'){
+  root.innerHTML=`<button class="explorer-back" onclick="goExplorerHome()">← Quay lại ${it.name}</button><h2>${currentView==='places'?'📍 Địa danh tiêu biểu':'🏛️ Lịch sử và văn hóa'} – ${it.name}</h2><p>Chọn một mục để xem nội dung chi tiết bằng tiếng Việt và tiếng Anh.</p><div class="explorer-grid">${data.map((x,i)=>`<button class="explorer-card" onclick="openExplorerDetail('${currentView}',${i})"><img src="${x.image}" alt="${x.name}"><div><b>${x.name}</b><small>${x.kind} · Xem nội dung →</small></div></button>`).join('')}</div>`;
+ }else if(currentView.startsWith('detail:')){
+  const [_,section,idx]=currentView.split(':');const x=(section==='places'?places:history)[Number(idx)];
+  root.innerHTML=`<button class="explorer-back" onclick="openExplorerSection('${section}')">← Quay lại danh sách</button><div class="explorer-feature"><img src="${x.image}" alt="${x.name}"><div class="inside"><span class="tag">${x.kind}</span><h2>${x.name}</h2><div class="lang-switch"><button class="lang-btn ${currentLanguage==='vi'?'active':''}" onclick="setExplorerLanguage('vi')">🇻🇳 Tiếng Việt</button><button class="lang-btn ${currentLanguage==='en'?'active':''}" onclick="setExplorerLanguage('en')">🇬🇧 English</button><button class="lang-btn" onclick="setExplorerLanguage('both')">Song ngữ</button></div>${currentLanguage==='vi'?`<h3>Giới thiệu</h3><p>${x.vi}</p>`:currentLanguage==='en'?`<h3>Introduction</h3><p>${x.enText}</p>`:`<h3>Giới thiệu / Introduction</h3><p>${x.vi}</p><p>${x.enText}</p>`}<button class="action-btn" onclick="speakCurrent('${encodeURIComponent(currentLanguage==='en'?x.enText:x.vi)}')">🔊 ${currentLanguage==='en'?'Listen to the passage':'Nghe toàn bộ đoạn văn'}</button><div class="learning-panel"><h3>📚 Từ vựng / Vocabulary</h3><div class="vocab-list"><div class="vocab-item"><b>heritage</b><br>di sản</div><div class="vocab-item"><b>landscape</b><br>cảnh quan</div><div class="vocab-item"><b>culture</b><br>văn hóa</div><div class="vocab-item"><b>destination</b><br>điểm đến</div></div></div></div></div>`;
+ }else if(currentView.startsWith('learn:')){renderLearning(root,currentView.split(':')[1],it);}
+}
+function setExplorerLanguage(lang){currentLanguage=lang;renderExplorer();}
+function goExplorerHome(){currentView='home';currentLanguage='vi';renderExplorer();}
+function openExplorerSection(section){currentView=section;renderExplorer();}
+function openExplorerDetail(section,i){currentView=`detail:${section}:${i}`;currentLanguage='vi';renderExplorer();}
+function openLearning(type){currentView='learn:'+type;renderExplorer();}
+function speakCurrent(encoded){const txt=decodeURIComponent(encoded);if(!('speechSynthesis'in window)){alert('Trình duyệt chưa hỗ trợ đọc văn bản.');return;}speechSynthesis.cancel();speechUtterance=new SpeechSynthesisUtterance(txt);speechUtterance.lang=currentLanguage==='en'?'en-US':'vi-VN';speechUtterance.rate=.9;speechSynthesis.speak(speechUtterance);}
+function renderLearning(root,type,it){
+ const back=`<button class="explorer-back" onclick="goExplorerHome()">← Quay lại ${it.name}</button>`;
+ if(type==='vocab')root.innerHTML=back+`<h2>📖 Vocabulary – ${it.name}</h2><p>Những từ tiếng Anh hữu ích khi giới thiệu địa phương.</p><div class="vocab-list"><div class="vocab-item"><b>heritage</b><br>di sản</div><div class="vocab-item"><b>landmark</b><br>địa danh nổi bật</div><div class="vocab-item"><b>festival</b><br>lễ hội</div><div class="vocab-item"><b>traditional</b><br>truyền thống</div><div class="vocab-item"><b>coastal</b><br>ven biển</div><div class="vocab-item"><b>historical site</b><br>di tích lịch sử</div></div>`;
+ else if(type==='sentences')root.innerHTML=back+`<h2>💬 Useful Sentences</h2><p><b>Welcome to ${it.name}!</b><br>Chào mừng bạn đến với ${it.name}!</p><p><b>This place is famous for its history and culture.</b><br>Nơi đây nổi tiếng với lịch sử và văn hóa.</p><p><b>Would you like to explore this destination?</b><br>Bạn có muốn khám phá địa điểm này không?</p>`;
+ else if(type==='listening')root.innerHTML=back+`<h2>🎧 Listening Practice</h2><p>Nghe đoạn giới thiệu tiếng Anh rồi thử đọc lại.</p><p> ${it.name} is a special destination in Vietnam. It has interesting places, local traditions and a rich cultural history.</p><button class="action-btn" onclick="speakCurrent('${encodeURIComponent(it.name+' is a special destination in Vietnam. It has interesting places, local traditions and a rich cultural history.')}')">🔊 Nghe đoạn tiếng Anh</button>`;
+ else root.innerHTML=back+`<h2>✍️ Quick Quiz – ${it.name}</h2><p>What does <b>heritage</b> mean?</p><div id="quizChoices"><button class="quiz-option" onclick="checkQuiz(this,false)">A. Lễ hội</button><button class="quiz-option" onclick="checkQuiz(this,true)">B. Di sản</button><button class="quiz-option" onclick="checkQuiz(this,false)">C. Bãi biển</button></div><p id="quizFeedback"></p>`;
+}
+function checkQuiz(btn,correct){document.querySelectorAll('.quiz-option').forEach(x=>x.classList.remove('selected','correct'));btn.classList.add(correct?'correct':'selected');document.getElementById('quizFeedback').textContent=correct?'Chính xác! Heritage có nghĩa là di sản.':'Chưa đúng, hãy thử lại nhé!';}
+
+
+function flowerMarker(item,island=false){
+ const icon=L.divIcon({
+  className:'flower-icon',
+  html:'<img src="'+FLOWER+'" alt="Hoa bồ công anh tự vẽ">',
+  iconSize:[48,62],
+  iconAnchor:[24,52]
+ });
+ const marker=L.marker([item.lat,item.lon],{icon,zIndexOffset:island?900:300});
+ marker.on('click',()=>openInfo(item,island));
+ marker.addTo(map);
+ marker.bindTooltip(item.name,{direction:'top',offset:[0,-48]});
+ return marker;
+}
+const markers=[];
+provinces.forEach(p=>markers.push({item:p,marker:flowerMarker(p)}));
+islands.forEach(p=>markers.push({item:p,marker:flowerMarker(p,true)}));
+const list=document.getElementById('regionList');
+function renderList(query=''){
+ list.innerHTML='';
+ [...provinces,...islands].filter(p=>p.name.toLocaleLowerCase('vi').includes(query.toLocaleLowerCase('vi'))).forEach(p=>{
+  const b=document.createElement('button');b.textContent='🌼 '+p.name;b.onclick=()=>{const m=markers.find(x=>x.item.name===p.name);if(m){map.flyTo([p.lat,p.lon],p.name.includes('Quần đảo')?7:7);m.marker.openTooltip();openInfo(p,p.name.includes('Quần đảo'));}};list.appendChild(b);
+ });
+}
+renderList();
+document.getElementById('search').addEventListener('input',e=>renderList(e.target.value));
+function getFeatureName(feature){
+ const props=feature.properties||{};
+ const values=Object.values(props).filter(v=>typeof v==='string');
+ const known=provinces.find(p=>values.some(v=>v.toLocaleLowerCase('vi').includes(p.name.toLocaleLowerCase('vi'))||p.name.toLocaleLowerCase('vi').includes(v.toLocaleLowerCase('vi'))));
+ return known?.name || props.name || props.NAME_1 || props.Ten_Tinh || props.ten_tinh || '';
+}
+async function loadBoundaries(){
+ const loading=document.getElementById('loading');
+ try{
+  // Lấy đúng tệp GeoJSON cấp tỉnh sau sắp xếp 2025 trong kho dữ liệu GIS.
+  const treeRes=await fetch('https://api.github.com/repos/nguyenduy1133/Free-GIS-Data/git/trees/main?recursive=1');
+  if(!treeRes.ok) throw new Error('Không truy cập được danh mục dữ liệu GeoJSON.');
+  const tree=await treeRes.json();
+  const file=tree.tree.find(x=>x.path.toLowerCase().endsWith('/provinces.geojson') && x.path.toLowerCase().includes('post-2025'));
+  if(!file) throw new Error('Không tìm thấy tệp ranh giới 34 tỉnh/thành.');
+  const geoRes=await fetch('https://raw.githubusercontent.com/nguyenduy1133/Free-GIS-Data/main/'+file.path.split('/').map(encodeURIComponent).join('/'));
+  if(!geoRes.ok) throw new Error('Tải dữ liệu ranh giới thất bại.');
+  const geo=await geoRes.json();
+  boundaryLayer=L.geoJSON(geo,{style:style,onEachFeature:(feature,layer)=>{
+   const nm=getFeatureName(feature);
+   if(nm) layer.bindTooltip(nm,{sticky:true,className:'province-label'});
+   layer.on({mouseover:e=>e.target.setStyle(highlight),mouseout:e=>boundaryLayer.resetStyle(e.target),click:e=>{
+    const match=provinces.find(p=>p.name===nm);
+    if(match) openInfo(match);
+   } });
+  }}).addTo(map);
+  map.fitBounds(boundaryLayer.getBounds(),{padding:[22,22]});
+  loading.remove();
+ }catch(err){
+  loading.textContent='Chưa tải được ranh giới tự động. Các hoa địa điểm vẫn hoạt động; hãy kiểm tra kết nối Internet.';
+  console.error(err);
+ }
+}
+loadBoundaries();
+document.getElementById('closeModal').onclick=()=>document.getElementById('modalBackdrop').classList.remove('show');
+document.getElementById('modalBackdrop').addEventListener('click',e=>{if(e.target.id==='modalBackdrop')e.currentTarget.classList.remove('show')});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('modalBackdrop').classList.remove('show')});
+</script>
+</body>
+</html> y như ri nha nhưng mà thêm mấy nhân vật lịch sử vô mỗi địa điểm nhen
+<script>
+// ===== BỔ SUNG NHÂN VẬT LỊCH SỬ =====
+const historicalFigures = {
+"Hà Nội":[
+["Lý Thái Tổ","Vua khai lập triều Lý","Năm 1010, ông ban Chiếu dời đô, chuyển kinh đô từ Hoa Lư về Đại La và đổi tên thành Thăng Long."]
+],
+"Cao Bằng":[
+["Kim Đồng","Anh hùng thiếu niên","Tên thật là Nông Văn Dền, người dân tộc Nùng. Ông là đội viên đầu tiên của Đội Nhi đồng cứu quốc và có đóng góp cho hoạt động cách mạng."]
+],
+"Tuyên Quang":[
+["Hồ Chí Minh","Lãnh tụ cách mạng Việt Nam","Tuyên Quang là căn cứ địa quan trọng của cách mạng. Tại Tân Trào, Chủ tịch Hồ Chí Minh cùng Trung ương Đảng lãnh đạo Tổng khởi nghĩa tháng Tám năm 1945."]
+],
+"Điện Biên":[
+["Võ Nguyên Giáp","Đại tướng, Tổng Tư lệnh","Ông là Tổng Tư lệnh chiến dịch Điện Biên Phủ năm 1954, chiến dịch làm nên thắng lợi lịch sử của dân tộc Việt Nam."]
+],
+"Lai Châu":[
+["Đèo Văn Trị","Thủ lĩnh người Thái","Ông là nhân vật có ảnh hưởng trong lịch sử vùng Tây Bắc cuối thế kỷ XIX, gắn với lịch sử cộng đồng người Thái ở khu vực Lai Châu."]
+],
+"Sơn La":[
+["Tô Hiệu","Nhà cách mạng Việt Nam","Ông từng bị thực dân Pháp giam giữ tại Nhà tù Sơn La. Dù trong hoàn cảnh tù đày, ông vẫn kiên trì hoạt động cách mạng."]
+],
+"Lào Cai":[
+["Hoàng A Tưởng","Nhân vật lịch sử địa phương","Dinh Hoàng A Tưởng tại Bắc Hà là công trình gắn với lịch sử xã hội vùng cao Lào Cai đầu thế kỷ XX. Nhân vật này giúp tìm hiểu lịch sử địa phương thời kỳ đó."]
+],
+"Thái Nguyên":[
+["Đội Cấn","Lãnh đạo khởi nghĩa Thái Nguyên","Ông là một trong những người lãnh đạo cuộc khởi nghĩa Thái Nguyên năm 1917, sự kiện tiêu biểu trong phong trào chống thực dân Pháp."]
+],
+"Lạng Sơn":[
+["Hoàng Văn Thụ","Nhà cách mạng Việt Nam","Ông sinh tại Lạng Sơn, là một trong những lãnh đạo tiêu biểu của phong trào cách mạng Việt Nam và hy sinh năm 1944."]
+],
+"Quảng Ninh":[
+["Trần Khánh Dư","Danh tướng thời Trần","Ông là vị tướng có công trong cuộc kháng chiến chống quân Nguyên – Mông, đặc biệt gắn với chiến thắng Vân Đồn năm 1288."]
+],
+"Bắc Ninh":[
+["Nguyễn Văn Cừ","Tổng Bí thư Đảng Cộng sản Đông Dương","Ông sinh năm 1912 tại vùng Kinh Bắc, nay thuộc Bắc Ninh. Ông là nhà lãnh đạo cách mạng tiêu biểu của Việt Nam."]
+],
+"Phú Thọ":[
+["Các Vua Hùng","Những vị vua gắn với thời đại dựng nước","Theo truyền thuyết và tín ngưỡng dân gian, các Vua Hùng có công dựng nước Văn Lang. Đền Hùng tại Phú Thọ là trung tâm của tín ngưỡng thờ cúng Hùng Vương."]
+],
+"Hải Phòng":[
+["Nguyễn Bỉnh Khiêm","Danh nhân văn hóa, nhà thơ và nhà giáo","Ông sinh năm 1491 tại vùng Vĩnh Bảo, Hải Phòng ngày nay. Ông là một nhà giáo và nhà thơ lớn của Việt Nam thế kỷ XVI."]
+],
+"Hưng Yên":[
+["Phạm Ngũ Lão","Danh tướng thời Trần","Ông là vị tướng tài ba dưới triều Trần, có công trong các cuộc kháng chiến chống quân Nguyên – Mông và quê ở vùng Hưng Yên ngày nay."]
+],
+"Ninh Bình":[
+["Đinh Bộ Lĩnh","Vua sáng lập nhà Đinh","Ông có công dẹp loạn 12 sứ quân, thống nhất đất nước và lập nên nhà nước Đại Cồ Việt năm 968, đóng đô tại Hoa Lư."]
+],
+"Thanh Hóa":[
+["Lê Lợi","Anh hùng dân tộc","Ông lãnh đạo cuộc khởi nghĩa Lam Sơn chống quân Minh, giành thắng lợi năm 1428 và thành lập triều Hậu Lê."],
+["Bà Triệu","Nữ anh hùng chống ngoại xâm","Tên thật là Triệu Thị Trinh. Bà lãnh đạo cuộc khởi nghĩa chống chính quyền Đông Ngô vào thế kỷ III tại vùng đất Thanh Hóa."]
+],
+"Nghệ An":[
+["Hồ Chí Minh","Chủ tịch nước Việt Nam","Chủ tịch Hồ Chí Minh sinh năm 1890 tại làng Hoàng Trù, Nam Đàn, Nghệ An. Người là lãnh tụ của cách mạng Việt Nam."]
+],
+"Hà Tĩnh":[
+["Nguyễn Du","Đại thi hào dân tộc","Nguyễn Du sinh năm 1765 tại Tiên Điền, Hà Tĩnh. Ông là tác giả Truyện Kiều, tác phẩm có giá trị lớn trong nền văn học Việt Nam."],
+["Phan Đình Phùng","Lãnh tụ phong trào Cần Vương","Ông là nhà yêu nước tiêu biểu cuối thế kỷ XIX, lãnh đạo cuộc khởi nghĩa Hương Khê chống thực dân Pháp."]
+],
+"Quảng Trị":[
+["Lê Duẩn","Tổng Bí thư Đảng Cộng sản Việt Nam","Ông sinh năm 1907 tại Quảng Trị và là một nhà lãnh đạo cách mạng có vai trò quan trọng trong lịch sử Việt Nam thế kỷ XX."]
+],
+"Huế":[
+["Minh Mạng","Hoàng đế triều Nguyễn","Ông trị vì từ năm 1820 đến năm 1841, thực hiện nhiều cải cách hành chính và để lại dấu ấn trong lịch sử triều Nguyễn."]
+],
+"Đà Nẵng":[
+["Ông Ích Khiêm","Danh tướng triều Nguyễn","Ông là một vị tướng có quê hương tại vùng Quảng Nam – Đà Nẵng ngày nay, từng tham gia chống thực dân Pháp trong thế kỷ XIX."],
+["Nguyễn Duy Hiệu","Lãnh tụ Nghĩa hội Quảng Nam","Ông là nhà yêu nước tiêu biểu trong phong trào Cần Vương ở Quảng Nam cuối thế kỷ XIX."]
+],
+"Quảng Ngãi":[
+["Phạm Văn Đồng","Thủ tướng Chính phủ Việt Nam","Ông sinh năm 1906 tại Quảng Ngãi, là nhà lãnh đạo cách mạng và từng giữ chức Thủ tướng Chính phủ trong nhiều năm."]
+],
+"Gia Lai":[
+["Anh hùng Núp","Anh hùng lực lượng vũ trang nhân dân","Tên thật là Đinh Núp, người Bahnar ở Tây Nguyên. Ông trở thành biểu tượng của tinh thần đấu tranh và lòng yêu nước của đồng bào Tây Nguyên."]
+],
+"Khánh Hòa":[
+["Alexandre Yersin","Bác sĩ và nhà khoa học","Ông có nhiều đóng góp cho y học và khoa học tại Việt Nam, đặc biệt gắn bó với Nha Trang và để lại dấu ấn trong lịch sử địa phương."]
+],
+"Đắk Lắk":[
+["Y Jút","Nhà hoạt động yêu nước người Ê Đê","Ông là trí thức người Ê Đê có đóng góp trong hoạt động giáo dục và bảo vệ quyền lợi của đồng bào dân tộc ở Tây Nguyên."]
+],
+"Lâm Đồng":[
+["K'Ho","Cộng đồng cư dân bản địa","Cộng đồng K'Ho có lịch sử lâu đời tại vùng cao nguyên Lâm Đồng, với những giá trị văn hóa, tập quán và tri thức bản địa đặc sắc. Đây là nội dung cần được giới thiệu qua tư liệu lịch sử và văn hóa địa phương."]
+],
+"Đồng Nai":[
+["Nguyễn Hữu Cảnh","Danh tướng thời chúa Nguyễn","Năm 1698, ông được cử vào kinh lược vùng đất phương Nam, đặt nền móng cho tổ chức hành chính của vùng Đồng Nai – Gia Định."]
+],
+"TP. Hồ Chí Minh":[
+["Trịnh Hoài Đức","Danh nhân văn hóa và nhà sử học","Ông là một trong những tác giả của Gia Định thành thông chí, tác phẩm quan trọng ghi chép về lịch sử, địa lý và văn hóa Nam Bộ."]
+],
+"Tây Ninh":[
+["Huỳnh Công Giản","Nhân vật lịch sử địa phương","Ông là nhân vật được tưởng nhớ qua các di tích và truyền thống địa phương ở Tây Ninh. Nội dung chi tiết cần được đối chiếu với tư liệu lịch sử địa phương."]
+],
+"Đồng Tháp":[
+["Nguyễn Sinh Sắc","Nhà nho yêu nước","Ông là thân sinh Chủ tịch Hồ Chí Minh, từng sinh sống và hoạt động tại Cao Lãnh. Khu di tích Nguyễn Sinh Sắc là địa điểm lịch sử quan trọng của Đồng Tháp."],
+["Đốc binh Kiều","Thủ lĩnh nghĩa quân chống Pháp","Ông là nhân vật tiêu biểu trong phong trào kháng chiến chống thực dân Pháp tại vùng Đồng Tháp Mười thế kỷ XIX."]
+],
+"Vĩnh Long":[
+["Phan Thanh Giản","Đại thần triều Nguyễn","Ông là nhân vật lịch sử thế kỷ XIX, quê ở vùng Nam Bộ và có nhiều dấu ấn trong lịch sử chính trị Việt Nam thời Nguyễn."]
+],
+"An Giang":[
+["Thoại Ngọc Hầu","Danh tướng và nhà khai phá Nam Bộ","Ông có công tổ chức đào kênh Vĩnh Tế, góp phần phát triển giao thông, thủy lợi và kinh tế vùng An Giang."]
+],
+"Cần Thơ":[
+["Châu Văn Liêm","Nhà cách mạng Việt Nam","Ông sinh tại Ô Môn, Cần Thơ ngày nay. Ông là một trong những người tham gia thành lập Đảng Cộng sản Việt Nam năm 1930."]
+],
+"Cà Mau":[
+["Phan Ngọc Hiển","Nhà cách mạng Việt Nam","Ông là người lãnh đạo cuộc khởi nghĩa Hòn Khoai năm 1940 tại Cà Mau, một sự kiện tiêu biểu trong phong trào cách mạng Nam Kỳ."]
+],
+"Quần đảo Hoàng Sa":[
+["Đội Hoàng Sa","Đội dân binh thực thi nhiệm vụ trên biển","Đội Hoàng Sa được tổ chức từ thời các chúa Nguyễn, thực hiện các hoạt động khai thác sản vật, đo đạc hải trình và nhiệm vụ tại vùng biển Hoàng Sa."]
+],
+"Quần đảo Trường Sa":[
+["Đội Bắc Hải","Đội dân binh hoạt động trên biển","Đội Bắc Hải được tổ chức dưới thời các chúa Nguyễn, hoạt động tại vùng biển phía Nam, trong đó có khu vực Trường Sa."]
+]
+};
+
+// Lưu hàm hiển thị cũ để giữ nguyên các chức năng hiện tại
+const oldRenderExplorer = renderExplorer;
+
+function escapeHistoryText(text) {
+ return String(text).replace(/[&<>"']/g, c => ({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+ }[c]));
+}
+
+function renderHistoryFigures() {
+ const root = document.getElementById('explorerContent');
+ const figures = historicalFigures[currentItem.name] || [];
+
+ if (!figures.length) return;
+
+ root.innerHTML += `
+ <div class="learning-panel" id="historical-figures">
+  <h3 style="margin-top:0">👑 Nhân vật lịch sử tiêu biểu</h3>
+  <p>Khám phá những nhân vật và dấu ấn lịch sử gắn với địa phương này.</p>
+  <div class="explorer-grid">
+   ${figures.map((person,i)=>`
+    <button class="explorer-card" data-history-index="${i}">
+     <div style="padding:16px">
+      <b>👤 ${escapeHistoryText(person[0])}</b>
+      <small>${escapeHistoryText(person[1])}<br>Xem tiểu sử →</small>
+     </div>
+    </button>
+   `).join('')}
+  </div>
+ </div>`;
+
+ root.querySelectorAll('[data-history-index]').forEach(button=>{
+  button.addEventListener('click',()=>{
+   const person=figures[Number(button.dataset.historyIndex)];
+   const name=escapeHistoryText(person[0]);
+   const role=escapeHistoryText(person[1]);
+   const detail=escapeHistoryText(person[2]);
+
+   root.innerHTML=`
+    <button class="explorer-back" id="history-back">← Quay lại ${escapeHistoryText(currentItem.name)}</button>
+    <div class="explorer-feature">
+     <div class="inside">
+      <span class="tag">Nhân vật lịch sử</span>
+      <h2>👤 ${name}</h2>
+      <h3>${role}</h3>
+      <p>${detail}</p>
+      <div class="learning-panel">
+       <h3 style="margin-top:0">📚 English Corner</h3>
+       <p><b>Historical figure:</b> Nhân vật lịch sử</p>
+       <p><b>Historical event:</b> Sự kiện lịch sử</p>
+       <p><b>Heritage:</b> Di sản</p>
+       <p><b>Contribution:</b> Đóng góp</p>
+      </div>
+      <button class="action-btn" id="history-speak">🔊 Nghe giới thiệu</button>
+     </div>
+    </div>`;
+
+   document.getElementById('history-back').onclick=()=>{
+    currentView='home';
+    oldRenderExplorer();
+    renderHistoryFigures();
+   };
+   document.getElementById('history-speak').onclick=()=>{
+    speakCurrent(encodeURIComponent(person[2]));
+   };
+  });
+ });
+}
+
+// Ghi đè hàm hiển thị nhưng giữ lại giao diện và chức năng cũ
+renderExplorer = function() {
+ oldRenderExplorer();
+
+ if(currentView==='home') {
+  renderHistoryFigures();
+ }
+};
+
+// Bổ sung nhân vật lịch sử vào cả trang chủ đang mở
+if(currentView==='home' && currentItem) {
+ renderHistoryFigures();
+}
+</script>
+</body>
+</html>
+<script>
+function renderHistoryFigures() {
+ const root = document.getElementById('explorerContent');
+ const figures = historicalFigures[currentItem.name] || [];
+
+ if (!figures.length) return;
+
+ const englishPanel = root.querySelector('.learning-panel');
+ if (!englishPanel) return;
+
+ englishPanel.insertAdjacentHTML('beforebegin', `
+ <div class="learning-panel" id="historical-figures">
+  <h3 style="margin-top:0">👑 Nhân vật lịch sử tiêu biểu</h3>
+  <p>Khám phá những nhân vật và dấu ấn lịch sử gắn với địa phương này.</p>
+  <div class="explorer-grid">
+   ${figures.map((person,i)=>`
+    <button class="explorer-card" data-history-index="${i}">
+     <div style="padding:16px">
+      <b>👤 ${escapeHistoryText(person[0])}</b>
+      <small>${escapeHistoryText(person[1])}<br>Xem tiểu sử →</small>
+     </div>
+    </button>
+   `).join('')}
+  </div>
+ </div>`);
+
+ root.querySelectorAll('[data-history-index]').forEach(button=>{
+  button.addEventListener('click',()=>{
+   const person=figures[Number(button.dataset.historyIndex)];
+   const name=escapeHistoryText(person[0]);
+   const role=escapeHistoryText(person[1]);
+   const detail=escapeHistoryText(person[2]);
+
+   root.innerHTML=`
+    <button class="explorer-back" id="history-back">← Quay lại ${escapeHistoryText(currentItem.name)}</button>
+    <div class="explorer-feature">
+     <div class="inside">
+      <span class="tag">Nhân vật lịch sử</span>
+      <h2>👤 ${name}</h2>
+      <h3>${role}</h3>
+      <p>${detail}</p>
+      <div class="learning-panel">
+       <h3 style="margin-top:0">📚 English Corner</h3>
+       <p><b>Historical figure:</b> Nhân vật lịch sử</p>
+       <p><b>Historical event:</b> Sự kiện lịch sử</p>
+       <p><b>Heritage:</b> Di sản</p>
+       <p><b>Contribution:</b> Đóng góp</p>
+      </div>
+      <button class="action-btn" id="history-speak">🔊 Nghe giới thiệu</button>
+     </div>
+    </div>`;
+
+   document.getElementById('history-back').onclick=()=>{
+    currentView='home';
+    oldRenderExplorer();
+    renderHistoryFigures();
+   };
+
+   document.getElementById('history-speak').onclick=()=>{
+    speakCurrent(encodeURIComponent(person[2]));
+   };
+  });
+ });
+}
+</script>
